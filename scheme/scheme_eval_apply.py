@@ -28,11 +28,16 @@ def scheme_eval(expr, env, _=None):  # Optional third argument is ignored
     # All non-atomic expressions are lists (combinations)
     if not scheme_listp(expr):
         raise SchemeError('malformed list: {0}'.format(repl_str(expr)))
+    
+    # Get operator and operands
     first, rest = expr.first, expr.rest
+
+    # Handle special forms
     if scheme_symbolp(first) and first in scheme_forms.SPECIAL_FORMS:
         return scheme_forms.SPECIAL_FORMS[first](rest, env)
     else:
         # BEGIN PROBLEM 3
+        # Evaluate operator and operands, then apply the operator to operands
         operator = scheme_eval(first, env)
         operands = rest.map(lambda operand: scheme_eval(operand, env))
         return scheme_apply(operator, operands, env)
