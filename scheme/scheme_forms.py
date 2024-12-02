@@ -25,27 +25,26 @@ def do_define_form(expressions, env):
     10
     >>> # problem 10
     >>> env = create_global_frame()
-    >>> do_define_form(read_line("((f x) (+ x 2))"), env) # evaluating (define (f x) (+ x 8))
+    >>> do_define_form(read_line("((f x) (+ x 8))"), env) # evaluating (define (f x) (+ x 8))
     'f'
     >>> scheme_eval(read_line("(f 3)"), env)
     5
     """
-    validate_form(expressions, 2)  # Checks that expressions is a list of length at least 2
+    validate_form(expressions, 2) # Checks that expressions is a list of length at least 2
     signature = expressions.first
-
     if scheme_symbolp(signature):
         # assigning a name to a value e.g. (define x (+ 1 2))
-        validate_form(expressions, 2, 2)  # Checks that expressions is a list of length exactly 2
-        # BEGIN PROBLEM 4
-        value = scheme_eval(expressions.rest.first, env)  # Evaluate the value expression
-        env.define(signature, value)  # Bind the symbol to the evaluated value in the environment
-        return signature  # Return the symbol that was bound
-        # END PROBLEM 4
+        validate_form(expressions, 2, 2) # Checks that expressions is a list of length exactly 2
+        value = scheme_eval(expressions.rest.first, env)  # Evaluate the value
+        env.define(signature, value)  # Define the symbol in the current environment
+        return signature
     elif isinstance(signature, Pair) and scheme_symbolp(signature.first):
         # defining a named procedure e.g. (define (f x y) (+ x y))
-        # BEGIN PROBLEM 10
-        "*** YOUR CODE HERE ***"
-        # END PROBLEM 10
+        formals = signature.rest
+        body = expressions.rest
+        lambda_proc = LambdaProcedure(formals, body, env)
+        env.define(signature.first, lambda_proc)
+        return signature.first
     else:
         bad_signature = signature.first if isinstance(signature, Pair) else signature
         raise SchemeError('non-symbol: {0}'.format(bad_signature))
@@ -57,10 +56,8 @@ def do_quote_form(expressions, env):
     >>> do_quote_form(read_line("((+ x 2))"), env) # evaluating (quote (+ x 2))
     Pair('+', Pair('x', Pair(2, nil)))
     """
-    validate_form(expressions, 1, 1)
-    # BEGIN PROBLEM 5
-    "*** YOUR CODE HERE ***"
-    # END PROBLEM 5
+    validate_form(expressions, 1, 1)  # Ensure there is exactly one operand
+    return expressions.first  # Simply return the quoted operand without evaluating it
 
 def do_begin_form(expressions, env):
     """Evaluate a begin form.
@@ -84,9 +81,7 @@ def do_lambda_form(expressions, env):
     validate_form(expressions, 2)
     formals = expressions.first
     validate_formals(formals)
-    # BEGIN PROBLEM 7
-    "*** YOUR CODE HERE ***"
-    # END PROBLEM 7
+    return LambdaProcedure(formals, expressions.rest, env)
 
 def do_if_form(expressions, env):
     """Evaluate an if form.
@@ -155,9 +150,9 @@ def do_cond_form(expressions, env):
         else:
             test = scheme_eval(clause.first, env)
         if is_scheme_true(test):
-            # BEGIN PROBLEM 13
-            "*** YOUR CODE HERE ***"
-            # END PROBLEM 13
+            if clause.rest is nil:
+                return test
+            return eval_all(clause.rest, env)
         expressions = expressions.rest
 
 def do_let_form(expressions, env):
@@ -218,9 +213,7 @@ def do_mu_form(expressions, env):
     validate_form(expressions, 2)
     formals = expressions.first
     validate_formals(formals)
-    # BEGIN PROBLEM 11
-    "*** YOUR CODE HERE ***"
-    # END PROBLEM 11
+    return MuProcedure(formals, expressions.rest)
 
 SPECIAL_FORMS = {
     'and': do_and_form,
