@@ -30,13 +30,16 @@ def do_define_form(expressions, env):
     >>> scheme_eval(read_line("(f 3)"), env)
     5
     """
-    validate_form(expressions, 2) # Checks that expressions is a list of length at least 2
+    validate_form(expressions, 2)  # Checks that expressions is a list of length at least 2
     signature = expressions.first
+
     if scheme_symbolp(signature):
         # assigning a name to a value e.g. (define x (+ 1 2))
-        validate_form(expressions, 2, 2) # Checks that expressions is a list of length exactly 2
+        validate_form(expressions, 2, 2)  # Checks that expressions is a list of length exactly 2
         # BEGIN PROBLEM 4
-        "*** YOUR CODE HERE ***"
+        value = scheme_eval(expressions.rest.first, env)  # Evaluate the value expression
+        env.define(signature, value)  # Bind the symbol to the evaluated value in the environment
+        return signature  # Return the symbol that was bound
         # END PROBLEM 4
     elif isinstance(signature, Pair) and scheme_symbolp(signature.first):
         # defining a named procedure e.g. (define (f x y) (+ x y))
@@ -181,8 +184,6 @@ def make_let_frame(bindings, env):
     # END PROBLEM 14
     return env.make_child_frame(names, vals)
 
-
-
 def do_quasiquote_form(expressions, env):
     """Evaluate a quasiquote form with parameters EXPRESSIONS in
     Frame ENV."""
@@ -208,7 +209,6 @@ def do_quasiquote_form(expressions, env):
 def do_unquote(expressions, env):
     raise SchemeError('unquote outside of quasiquote')
 
-
 #################
 # Dynamic Scope #
 #################
@@ -221,8 +221,6 @@ def do_mu_form(expressions, env):
     # BEGIN PROBLEM 11
     "*** YOUR CODE HERE ***"
     # END PROBLEM 11
-
-
 
 SPECIAL_FORMS = {
     'and': do_and_form,
