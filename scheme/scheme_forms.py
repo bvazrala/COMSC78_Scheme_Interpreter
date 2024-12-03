@@ -8,12 +8,13 @@ from scheme_builtins import *
 #################
 
 # Each of the following do_xxx_form functions takes the cdr of a special form as
-# its first argument---a Scheme list representing a special form without the
+# its first argument—a Scheme list representing a special form without the
 # initial identifying symbol (if, lambda, quote, ...). Its second argument is
 # the environment in which the form is to be evaluated.
 
 def do_define_form(expressions, env):
     """Evaluate a define form.
+
     >>> env = create_global_frame()
     >>> do_define_form(read_line("(x 2)"), env) # evaluating (define x 2)
     'x'
@@ -28,23 +29,38 @@ def do_define_form(expressions, env):
     >>> do_define_form(read_line("((f x) (+ x 8))"), env) # evaluating (define (f x) (+ x 8))
     'f'
     >>> scheme_eval(read_line("(f 3)"), env)
-    5
+    11
     """
-    validate_form(expressions, 2) # Checks that expressions is a list of length at least 2
+    validate_form(expressions, 2)  # At least two expressions
     signature = expressions.first
     if scheme_symbolp(signature):
-        # assigning a name to a value e.g. (define x (+ 1 2))
-        validate_form(expressions, 2, 2) # Checks that expressions is a list of length exactly 2
-        value = scheme_eval(expressions.rest.first, env)  # Evaluate the value
-        env.define(signature, value)  # Define the symbol in the current environment
+        # (define x <expr>)
+        validate_form(expressions, 2, 2)  # Exactly two expressions
+        # BEGIN PROBLEM 4
+        # evaluate the second expression to get the value
+        value = scheme_eval(expressions.rest.first, env)
+        # define the symbol in the current environment
+        env.define(signature, value)
+        # return the defined symbol
         return signature
+        # END PROBLEM 4
+
     elif isinstance(signature, Pair) and scheme_symbolp(signature.first):
-        # defining a named procedure e.g. (define (f x y) (+ x y))
+        # BEGIN PROBLEM 10
+        # extract the function name from the signature
+        func_name = signature.first
+        # extract the formal parameters from the signature
         formals = signature.rest
+        # extract the body of the lambda function
         body = expressions.rest
+        # create a new lambda procedure with the given formals and body
         lambda_proc = LambdaProcedure(formals, body, env)
-        env.define(signature.first, lambda_proc)
-        return signature.first
+        # define the lambda procedure in the environment
+        env.define(func_name, lambda_proc)
+        # return the function name
+        return func_name
+        # END PROBLEM 10
+
     else:
         bad_signature = signature.first if isinstance(signature, Pair) else signature
         raise SchemeError('non-symbol: {0}'.format(bad_signature))
@@ -56,8 +72,12 @@ def do_quote_form(expressions, env):
     >>> do_quote_form(read_line("((+ x 2))"), env) # evaluating (quote (+ x 2))
     Pair('+', Pair('x', Pair(2, nil)))
     """
-    validate_form(expressions, 1, 1)  # Ensure there is exactly one operand
-    return expressions.first  # Simply return the quoted operand without evaluating it
+    validate_form(expressions, 1, 1)  # Exactly one expression
+    # BEGIN PROBLEM 5
+    # simply return the first expression without evaluating it
+    return expressions.first
+    # END PROBLEM 5
+
 
 def do_begin_form(expressions, env):
     """Evaluate a begin form.
@@ -69,7 +89,12 @@ def do_begin_form(expressions, env):
     3
     """
     validate_form(expressions, 1)
-    return eval_all(expressions, env)
+    result = None
+    while expressions is not nil:
+        exp = expressions.first
+        result = scheme_eval(exp, env)
+        expressions = expressions.rest
+    return result
 
 def do_lambda_form(expressions, env):
     """Evaluate a lambda form.
@@ -81,7 +106,15 @@ def do_lambda_form(expressions, env):
     validate_form(expressions, 2)
     formals = expressions.first
     validate_formals(formals)
-    return LambdaProcedure(formals, expressions.rest, env)
+    # BEGIN PROBLEM 7
+    # the body of the lambda starts from the rest of the expressions
+    body = expressions.rest
+    # ensure that the body contains at least one expression
+    validate_form(body, 1)  # At least one expression in body
+    # return a new lambda procedure
+    return LambdaProcedure(formals, body, env)
+    # END PROBLEM 7
+
 
 def do_if_form(expressions, env):
     """Evaluate an if form.
@@ -92,11 +125,16 @@ def do_if_form(expressions, env):
     >>> do_if_form(read_line("(#f (print 2) (print 3))"), env) # evaluating (if #f (print 2) (print 3))
     3
     """
-    validate_form(expressions, 2, 3)
-    if is_scheme_true(scheme_eval(expressions.first, env)):
-        return scheme_eval(expressions.rest.first, env)
+    validate_form(expressions, 2, 3)  # 2 or 3 expressions
+    test = scheme_eval(expressions.first, env)
+    if is_scheme_true(test):
+        consequent = expressions.rest.first
+        return scheme_eval(consequent, env)
     elif len(expressions) == 3:
-        return scheme_eval(expressions.rest.rest.first, env)
+        alternative = expressions.rest.rest.first
+        return scheme_eval(alternative, env)
+    else:
+        return None
 
 def do_and_form(expressions, env):
     """Evaluate a (short-circuited) and form.
@@ -113,8 +151,21 @@ def do_and_form(expressions, env):
     False
     """
     # BEGIN PROBLEM 12
-    "*** YOUR CODE HERE ***"
+    # if no expressions, return True as default for 'and'
+    if expressions is nil:
+        return True
+    result = True
+    # evaluate each expression in turn
+    while expressions is not nil:
+        result = scheme_eval(expressions.first, env)
+        # if any expression evaluates to false, short-circuit and return it
+        if is_scheme_false(result):
+            return result
+        expressions = expressions.rest
+    # if all expressions are true, return the last result
+    return result
     # END PROBLEM 12
+
 
 def do_or_form(expressions, env):
     """Evaluate a (short-circuited) or form.
@@ -131,8 +182,20 @@ def do_or_form(expressions, env):
     6
     """
     # BEGIN PROBLEM 12
-    "*** YOUR CODE HERE ***"
+    # if no expressions, return False as default for 'or'
+    if expressions is nil:
+        return False
+    # evaluate each expression in turn
+    while expressions is not nil:
+        result = scheme_eval(expressions.first, env)
+        # if any expression evaluates to true, short-circuit and return it
+        if is_scheme_true(result):
+            return result
+        expressions = expressions.rest
+    # if none are true, return False
+    return False
     # END PROBLEM 12
+
 
 def do_cond_form(expressions, env):
     """Evaluate a cond form.
@@ -140,20 +203,39 @@ def do_cond_form(expressions, env):
     >>> do_cond_form(read_line("((#f (print 2)) (#t 3))"), create_global_frame())
     3
     """
+    # BEGIN PROBLEM 13
+    # iterate through each clause in the cond expression
     while expressions is not nil:
         clause = expressions.first
+        # ensure each clause has at least one expression
         validate_form(clause, 1)
-        if clause.first == 'else':
-            test = True
+        test = clause.first
+        # handle the special 'else' clause
+        if test == 'else':
+            # ensure 'else' is the last clause
             if expressions.rest != nil:
                 raise SchemeError('else must be last')
+            result_expressions = clause.rest
+            # if 'else' has no expressions, return True
+            if result_expressions is nil:
+                return True
+            else:
+                return eval_all(result_expressions, env)
         else:
-            test = scheme_eval(clause.first, env)
-        if is_scheme_true(test):
-            if clause.rest is nil:
-                return test
-            return eval_all(clause.rest, env)
+            # evaluate the test expression
+            test_result = scheme_eval(test, env)
+            # if the test is true, evaluate the rest of the clause
+            if is_scheme_true(test_result):
+                result_expressions = clause.rest
+                if result_expressions is nil:
+                    return test_result
+                else:
+                    return eval_all(result_expressions, env)
         expressions = expressions.rest
+    # return None if no clause evaluates to true
+    return None
+    # END PROBLEM 13
+
 
 def do_let_form(expressions, env):
     """Evaluate a let form.
@@ -163,8 +245,10 @@ def do_let_form(expressions, env):
     5
     """
     validate_form(expressions, 2)
-    let_env = make_let_frame(expressions.first, env)
-    return eval_all(expressions.rest, let_env)
+    bindings = expressions.first
+    body = expressions.rest
+    let_env = make_let_frame(bindings, env)
+    return eval_all(body, let_env)
 
 def make_let_frame(bindings, env):
     """Create a child frame of Frame ENV that contains the definitions given in
@@ -173,31 +257,46 @@ def make_let_frame(bindings, env):
     and a Scheme expression."""
     if not scheme_listp(bindings):
         raise SchemeError('bad bindings list in let form')
-    names = vals = nil
+    names, values = nil, nil
     # BEGIN PROBLEM 14
-    "*** YOUR CODE HERE ***"
+    # iterate through each binding in the let expression
+    current = bindings
+    while current is not nil:
+        binding = current.first
+        # ensure each binding is a pair of a symbol and an expression
+        validate_form(binding, 2, 2)
+        symbol = binding.first
+        expression = binding.rest.first
+        # validate that the symbol is a valid variable name
+        validate_formals(Pair(symbol, nil))
+        # prepend the symbol and its evaluated value to their respective lists
+        names = Pair(symbol, names)
+        values = Pair(scheme_eval(expression, env), values)
+        current = current.rest
+    # create a new child frame with the bindings
+    return env.make_child_frame(names, values)
     # END PROBLEM 14
-    return env.make_child_frame(names, vals)
+
+    return env.make_child_frame(names, values)
+
+
+
 
 def do_quasiquote_form(expressions, env):
-    """Evaluate a quasiquote form with parameters EXPRESSIONS in
-    Frame ENV."""
+    """Evaluate a quasiquote form."""
     def quasiquote_item(val, env, level):
         """Evaluate Scheme expression VAL that is nested at depth LEVEL in
         a quasiquote form in Frame ENV."""
         if not scheme_pairp(val):
             return val
-        if val.first == 'unquote':
+        elif val.first == 'unquote':
             level -= 1
             if level == 0:
-                expressions = val.rest
-                validate_form(expressions, 1, 1)
-                return scheme_eval(expressions.first, env)
+                validate_form(val.rest, 1, 1)
+                return scheme_eval(val.rest.first, env)
         elif val.first == 'quasiquote':
             level += 1
-
-        return val.map(lambda elem: quasiquote_item(elem, env, level))
-
+        return val.map(lambda x: quasiquote_item(x, env, level))
     validate_form(expressions, 1, 1)
     return quasiquote_item(expressions.first, env, 1)
 
@@ -213,7 +312,9 @@ def do_mu_form(expressions, env):
     validate_form(expressions, 2)
     formals = expressions.first
     validate_formals(formals)
-    return MuProcedure(formals, expressions.rest)
+    body = expressions.rest
+    validate_form(body, 1)  # At least one expression in body
+    return MuProcedure(formals, body)
 
 SPECIAL_FORMS = {
     'and': do_and_form,

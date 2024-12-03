@@ -28,20 +28,21 @@ def scheme_eval(expr, env, _=None):  # Optional third argument is ignored
     # All non-atomic expressions are lists (combinations)
     if not scheme_listp(expr):
         raise SchemeError('malformed list: {0}'.format(repl_str(expr)))
-    
-    # Get operator and operands
     first, rest = expr.first, expr.rest
-
-    # Handle special forms
     if scheme_symbolp(first) and first in scheme_forms.SPECIAL_FORMS:
         return scheme_forms.SPECIAL_FORMS[first](rest, env)
     else:
         # BEGIN PROBLEM 3
-        # Evaluate operator and operands, then apply the operator to operands
-        operator = scheme_eval(first, env)
+        # evaluate the first part of the expression to find the operator
+        operator = scheme_eval(first, env) 
+        # ensure that the operator is a valid procedure
+        validate_procedure(operator)
+        # evaluate the rest of the expressions (the operands)
         operands = rest.map(lambda operand: scheme_eval(operand, env))
+        # apply the operator to the evaluated operands
         return scheme_apply(operator, operands, env)
         # END PROBLEM 3
+
 
 def scheme_apply(procedure, args, env):
     """Apply Scheme PROCEDURE to argument values ARGS (a Scheme list) in
@@ -51,26 +52,36 @@ def scheme_apply(procedure, args, env):
         assert False, "Not a Frame: {}".format(env)
     if isinstance(procedure, BuiltinProcedure):
         # BEGIN PROBLEM 2
-        py_args = []  # Convert Scheme list to Python list
+        # convert the scheme list args to a python list
+        py_args = []
         while isinstance(args, Pair):
             py_args.append(args.first)
             args = args.rest
 
+        # if the procedure requires the environment, add it to the arguments
         if procedure.need_env:
             py_args.append(env)
 
+        # try applying the procedure to the arguments
         try:
             return procedure.py_func(*py_args)
-        except TypeError:
+        # catch errors due to incorrect number of arguments
+        except TypeError as e:
             raise SchemeError('incorrect number of arguments: {0}'.format(procedure))
         # END PROBLEM 2
     elif isinstance(procedure, LambdaProcedure):
         # BEGIN PROBLEM 9
-        "*** YOUR CODE HERE ***"
+        # create a new environment for the lambda procedure
+        new_env = procedure.env.make_child_frame(procedure.formals, args)
+        # evaluate the body of the lambda in the new environment
+        return eval_all(procedure.body, new_env)
         # END PROBLEM 9
     elif isinstance(procedure, MuProcedure):
         # BEGIN PROBLEM 11
-        "*** YOUR CODE HERE ***"
+        # create a new environment with dynamic scope
+        new_env = env.make_child_frame(procedure.formals, args)
+        # evaluate the body of the mu procedure in the new environment
+        return eval_all(procedure.body, new_env)
         # END PROBLEM 11
     else:
         assert False, "Unexpected procedure: {}".format(procedure)
@@ -91,7 +102,16 @@ def eval_all(expressions, env):
     2
     """
     # BEGIN PROBLEM 6
-    return scheme_eval(expressions.first, env)  # replace this with lines of your own code
+    # if there are no expressions, return None
+    if expressions is nil:
+        return None
+    # iterate over the expressions, evaluating each one
+    result = None
+    while expressions is not nil:
+        result = scheme_eval(expressions.first, env)
+        expressions = expressions.rest
+    # return the result of the last expression 
+    return result
     # END PROBLEM 6
 
 
@@ -125,10 +145,35 @@ def optimize_tail_calls(unoptimized_scheme_eval):
         if tail and not scheme_symbolp(expr) and not self_evaluating(expr):
             return Unevaluated(expr, env)
 
-        result = Unevaluated(expr, env)
         # BEGIN OPTIONAL PROBLEM 1
-        "*** YOUR CODE HERE ***"
+        while True:
+            if scheme_symbolp(expr):
+                return env.lookup(expr)
+            elif self_evaluating(expr):
+                return expr
+
+            if not scheme_listp(expr):
+                raise SchemeError('malformed list: {0}'.format(repl_str(expr)))
+
+            first, rest = expr.first, expr.rest
+
+            if scheme_symbolp(first) and first in scheme_forms.SPECIAL_FORMS:
+                unevaluated = scheme_forms.SPECIAL_FORMS[first](rest, env)
+            else:
+                operator = scheme_eval(first, env)
+                validate_procedure(operator)
+                operands = rest.map(lambda operand: scheme_eval(operand, env))
+                expr = operator.apply(operands, env)
+                continue  # Tail call
+
+            if tail:
+                return Unevaluated(unevaluated, env)
+            else:
+                return unevaluated
+
         # END OPTIONAL PROBLEM 1
+
+
     return optimized_eval
 
 ################################################################
